@@ -161,13 +161,11 @@ class STGC:
         device = "cuda:0" if torch.cuda.is_available() else "cpu"
         args = self.args
         data = self.data
-        MSEloss = nn.MSELoss().to(device)
         SNTK = StructureBasedNeuralTangentKernel(K=2, L=2, scale='average').to(device)
         ridge = torch.tensor(1e0).to(device)
         KRR = KernelRidgeRegression(SNTK.nodes_gram, ridge).to(device)
         feat_syn, pge, labels_syn = self.feat_syn, self.pge, self.labels_syn
         features, adj, labels = data.feat_train, data.adj_train, data.labels_train
-        idx_train = data.idx_train
 
         syn_class_indices = self.syn_class_indices
 
@@ -205,7 +203,6 @@ class STGC:
 
         for it in range(args.epochs):
 
-            from models.stgc_stgnn import STGNN
 
             compress_model = GCN(7, 64, 7, 3,device='cuda')
             compress_model.train()
@@ -239,6 +236,7 @@ class STGC:
 
             outer_loop, inner_loop = get_loops(args)
             loss_avg = 0
+            #todo 应该写dataloader来读取batch
             for ol in range(outer_loop):
                 adj_syn = pge(batch[0,:,0,:])
                 adj_syn_norm = utils.normalize_adj_tensor(adj_syn, sparse=False)
