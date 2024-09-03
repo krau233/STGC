@@ -17,6 +17,35 @@ from torch_geometric.data import NeighborSampler
 from torch_geometric.utils import add_remaining_self_loops, to_undirected
 from torch_geometric.datasets import Planetoid
 
+from pykalman import KalmanFilter
+
+
+
+def kalman_filter(data):
+    b,n,t,f = data.size()
+    R = np.eye(n*f)  # R的维度为f x f，可以根据具体情况调整
+
+    # 观测矩阵H和误差协方差矩阵P可以根据问题定义
+    H = np.eye(n*f)  # 简单的初始化，维度也是f x f
+    P = np.eye(n*f)  # 误差协方差矩阵
+
+    # 初始化卡尔曼滤波器
+    kf = KalmanFilter(observation_matrices=H,
+                      observation_covariance=R,
+                      transition_covariance=P)
+    observations = data.permute(0,2,1,3).reshape(b,t,n*f)
+    kf = kf.em(observations[0,:,:].detach().cpu().numpy(), n_iter=10)
+    state_means, state_covariances = kf.smooth(observations[0,:,:].detach().cpu().numpy())
+    R_estimated = kf.observation_covariance
+    H_estimated = kf.observation_matrices
+    P_estimated = kf.transition_covariance
+
+    alpha = np.matmul(R, (np.linalg.inv(np.matmul(np.matmul(H_estimated, P_estimated), H_estimated.T) + R_estimated)))
+    alpha = np.sum(np.abs(alpha),axis=0)
+    alpha = np.max(alpha)
+    alpha = alpha/(1+alpha)
+
+    return alpha
 
 
 
